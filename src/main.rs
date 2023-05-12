@@ -1,8 +1,7 @@
 use crate::SelfMateResult::Unknown;
-use pgn_reader::{BufferedReader, Outcome, RawHeader, SanPlus, Skip, Visitor};
-use shakmaty::san::Suffix::Checkmate;
-use shakmaty::{CastlingMode, Chess, Color, File, Position, Rank, Role, Square};
-use std::mem::replace;
+use pgn_reader::{BufferedReader, SanPlus, Skip, Visitor};
+use rayon::prelude::*;
+use shakmaty::{Chess, Position};
 
 #[derive(Copy, Clone, Eq, PartialEq, Default)]
 enum SelfMateResult {
@@ -15,7 +14,6 @@ enum SelfMateResult {
 #[derive(Default)]
 struct SelfMate {
     pos: Chess,
-    last_pos: Option<Chess>,
     result: SelfMateResult,
 }
 
@@ -90,16 +88,18 @@ fn find_selfmates(pgn: String) {
 fn main() {
     let searchdir = std::env::args().nth(1).expect("No search directory given");
     let path = std::path::Path::new(&searchdir);
-    for entry in std::fs::read_dir(path).expect("Failed to read directory") {
+    let srcfiles: Vec<_> = std::fs::read_dir(path)
+        .expect("Failed to read directory")
+        .collect();
+    srcfiles.into_par_iter().for_each(|entry| {
         let entry = entry.unwrap();
         let path = entry.path();
         // Split file on every second newline
         if let Ok(pgn) = std::fs::read_to_string(path) {
             eprintln!("Processing {:?}", entry.path());
-            let pgns = pgn.split("\n\n").collect::<Vec<&str>>();
-            pgns.chunks(2)
-                .map(|game| game.join("\n"))
-                .for_each(find_selfmates)
+            let parts: Vec<_> = pgn.split("\n\n").collect();
+            let pgns: Vec<_> = parts.chunks(2).map(|game| game.join("\n")).collect();
+            pgns.into_par_iter().for_each(find_selfmates);
         }
-    }
+    });
 }

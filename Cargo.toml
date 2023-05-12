@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 pgn-reader = "0.24.0"
+rayon = "1.7.0"
 shakmaty = "0.25.0"
